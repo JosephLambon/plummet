@@ -47,10 +47,10 @@ fn main() {
         side: Side::Sell,
     };
 
-    order_book.add_to_order_book(bid1);
-    order_book.add_to_order_book(bid2);
-    order_book.add_to_order_book(bid3);
-    order_book.add_to_order_book(ask1);
-    order_book.add_to_order_book(ask2);
-    order_book.add_to_order_book(ask3);
+    order_book.insert(bid1);
+    order_book.insert(bid2);
+    order_book.insert(bid3);
+    order_book.insert(ask1);
+    order_book.insert(ask2);
+    order_book.insert(ask3);
 }
