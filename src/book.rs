@@ -32,9 +32,9 @@ impl OrderBook {
         order_book_side: &mut BTreeMap<Decimal, VecDeque<LimitOrder>>,
         limit_order: LimitOrder,
     ) {
-        let bid_price_exists = order_book_side.contains_key(&limit_order.limit_price);
+        let order_price_exists = order_book_side.contains_key(&limit_order.limit_price);
 
-        match bid_price_exists {
+        match order_price_exists {
             false => {
                 order_book_side.insert(limit_order.limit_price, VecDeque::from([limit_order]));
             }
