@@ -182,11 +182,91 @@ mod tests {
 
     #[test]
     fn insert_routes_buy_and_sell_orders_to_correct_sides() {
-        panic!()
+        let bid = LimitOrder {
+            limit_price: dec!(1200.2134),
+            quantity: dec!(10),
+            time_placed: Local::now(),
+            side: Side::Buy,
+        };
+        let ask = LimitOrder {
+            limit_price: dec!(1200.2136),
+            quantity: dec!(10),
+            time_placed: Local::now(),
+            side: Side::Sell,
+        };
+
+        let mut order_book = OrderBook::new();
+
+        order_book.insert(bid.clone());
+        order_book.insert(ask.clone());
+
+        let expected_bids = VecDeque::from([bid]);
+        let expected_asks = VecDeque::from([ask]);
+
+        assert_eq!(order_book.asks.len(), 1);
+        assert!(order_book.asks.contains_key(&dec!(1200.2136)));
+        assert_eq!(
+            order_book.asks.get(&dec!(1200.2136)).unwrap(),
+            &expected_asks
+        );
+
+        assert_eq!(order_book.bids.len(), 1);
+        assert!(order_book.bids.contains_key(&dec!(1200.2134)));
+        assert_eq!(
+            order_book.bids.get(&dec!(1200.2134)).unwrap(),
+            &expected_bids
+        );
     }
 
     #[test]
     fn insert_preserves_fifo_order_within_price_level() {
-        panic!()
+        let bid1: LimitOrder = LimitOrder {
+            limit_price: dec!(1200.2134),
+            quantity: dec!(10),
+            time_placed: Local::now(),
+            side: Side::Buy,
+        };
+        let bid2 = LimitOrder {
+            limit_price: dec!(1200.2134),
+            quantity: dec!(10),
+            time_placed: Local::now(),
+            side: Side::Buy,
+        };
+        let bid3 = LimitOrder {
+            limit_price: dec!(1200.2134),
+            quantity: dec!(10),
+            time_placed: Local::now(),
+            side: Side::Buy,
+        };
+
+        let mut order_book = OrderBook::new();
+
+        order_book.insert(bid1.clone());
+        order_book.insert(bid2.clone());
+        order_book.insert(bid3.clone());
+
+        let expected = VecDeque::from([bid1.clone(), bid2.clone(), bid3.clone()]);
+
+        assert_eq!(order_book.bids.len(), 1);
+        assert!(order_book.bids.contains_key(&dec!(1200.2134)));
+        assert_eq!(
+            order_book
+                .bids
+                .get(&dec!(1200.2134))
+                .unwrap()
+                .front()
+                .unwrap(),
+            &bid1
+        );
+        assert_eq!(
+            order_book
+                .bids
+                .get(&dec!(1200.2134))
+                .unwrap()
+                .back()
+                .unwrap(),
+            &bid3
+        );
+        assert_eq!(order_book.bids.get(&dec!(1200.2134)).unwrap(), &expected);
     }
 }
