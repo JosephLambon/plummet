@@ -1,10 +1,11 @@
+pub mod order;
+pub use order::{LimitOrder, Side};
+
 use std::collections::{BTreeMap, VecDeque};
 
 use tracing::{Level, debug, instrument, trace};
 
 use rust_decimal::Decimal;
-
-use chrono::prelude::*;
 
 #[derive(Debug)]
 pub struct OrderBook {
@@ -61,23 +62,9 @@ impl Default for OrderBook {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
-pub struct LimitOrder {
-    pub id: u64,
-    pub time_placed: DateTime<Local>,
-    pub limit_price: Decimal,
-    pub quantity: Decimal,
-    pub side: Side,
-}
-
-#[derive(Debug, PartialEq, Clone)]
-pub enum Side {
-    Buy,
-    Sell,
-}
-
 #[cfg(test)]
 mod tests {
+    use chrono::prelude::Local;
     use rust_decimal::dec;
 
     use super::*;
