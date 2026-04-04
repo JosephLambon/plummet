@@ -4,11 +4,14 @@ pub use order::{LimitOrder, Side};
 
 use crate::engine::event::EngineEvent;
 
-use std::{collections::{BTreeMap, VecDeque}, io::{Error, ErrorKind}};
+use std::{
+    collections::{BTreeMap, VecDeque},
+    io::{Error, ErrorKind},
+};
 
 use tracing::{Level, debug, instrument, trace};
 
-use rust_decimal::{Decimal, dec};
+use rust_decimal::{Decimal};
 
 mod trade;
 pub use trade::Trade;
@@ -20,7 +23,7 @@ pub struct OrderBook {
     pub orders_placed: u64,
     pub events_processed: u64,
     pub executed_trades: u64,
-    pub cancelled_trades: u64
+    pub cancelled_trades: u64,
 }
 
 #[derive(Debug, PartialEq)]
@@ -38,7 +41,7 @@ impl OrderBook {
             orders_placed: 0,
             events_processed: 0,
             executed_trades: 0,
-            cancelled_trades: 0
+            cancelled_trades: 0,
         }
     }
 
@@ -46,19 +49,24 @@ impl OrderBook {
     pub fn process(&mut self, event: &EngineEvent) -> Result<EngineEvent, Error> {
         match event {
             EngineEvent::OrdersMatched(matched) => {
-                self.events_processed += 1;
-                self.executed_trades += 1;
-
-                let bid_queue = self.bids.get_mut(&matched.ask_price)
-                .ok_or(Error::new(ErrorKind::NotFound, "Unable to find price level on bid side"))?;
-                let bid = bid_queue.front_mut()
-                        .ok_or(Error::new(ErrorKind::NotFound, "Unable to find price level on bid side"))?;
-
-                let ask_queue = self.asks.get_mut(&matched.ask_price)
-                .ok_or(Error::new(ErrorKind::NotFound, "Unable to find price level on ask side"))?;
-                let ask = ask_queue.front_mut()
-                        .ok_or(Error::new(ErrorKind::NotFound, "Unable to find price level on bid side"))?;
-
+                let bid_queue = self.bids.get_mut(&matched.ask_price).ok_or(Error::new(
+                    ErrorKind::NotFound,
+                    "Unable to find price level on bid side",
+                ))?;
+                let bid = bid_queue.front_mut().ok_or(Error::new(
+                    ErrorKind::NotFound,
+                    "Unable to find price level on bid side",
+                ))?;
+                
+                let ask_queue = self.asks.get_mut(&matched.ask_price).ok_or(Error::new(
+                    ErrorKind::NotFound,
+                    "Unable to find price level on ask side",
+                ))?;
+                let ask = ask_queue.front_mut().ok_or(Error::new(
+                    ErrorKind::NotFound,
+                    "Unable to find price level on bid side",
+                ))?;
+                
                 let bid_id = bid.id;
                 let ask_id = ask.id;
                 let execution_price = ask.limit_price;
@@ -67,23 +75,24 @@ impl OrderBook {
                 let quantity = Decimal::min(bid.quantity_remaining, ask.quantity_remaining);
                 let bid_fulfilled = bid.adjust_quantities(quantity);
                 let ask_fulfilled = ask.adjust_quantities(quantity);
-
+                
                 // Remove if needed
-                if bid_fulfilled { 
+                if bid_fulfilled {
                     bid.state = order::OrderState::Fulfilled;
                     bid_queue.pop_front();
                 } else {
                     bid.state = order::OrderState::PartiallyFulfilled;
                 }
-
-                if ask_fulfilled { 
+                
+                if ask_fulfilled {
                     ask.state = order::OrderState::Fulfilled;
                     ask_queue.pop_front();
                 } else {
                     ask.state = order::OrderState::PartiallyFulfilled;
                 }
                 
-                
+                self.events_processed += 1;
+                self.executed_trades += 1;
                 Ok(EngineEvent::TradeExecuted(Trade {
                     trade_id: self.executed_trades,
                     bid_order_id: bid_id,
@@ -92,14 +101,17 @@ impl OrderBook {
                     execution_price: execution_price,
                     executed_quantity: quantity,
                 }))
-            },
+            }
             EngineEvent::OrderCancelled(cancelled) => {
                 self.events_processed += 1;
                 self.cancelled_trades += 1;
 
                 Err(Error::new(ErrorKind::Unsupported, "Not implemented"))
-            },
-            _ => { Err(Error::new(ErrorKind::Unsupported, "Executor does not support that EngineEvent")) }
+            }
+            _ => Err(Error::new(
+                ErrorKind::Unsupported,
+                "Executor does not support that EngineEvent",
+            )),
         }
     }
 
@@ -122,7 +134,7 @@ impl OrderBook {
             Some(MatchResult {
                 bid_id: bid.id,
                 ask_id: ask.id,
-                ask_price: ask.limit_price
+                ask_price: ask.limit_price,
             })
         } else {
             None
@@ -176,12 +188,10 @@ impl Default for OrderBook {
 
 #[cfg(test)]
 mod tests {
-    use std::rc::Rc;
-
     use chrono::prelude::Local;
     use rust_decimal::dec;
 
-    use crate::book::order::OrderState;
+    use crate::{book::order::OrderState, engine::event::OrdersMatchedEvent};
 
     use super::*;
 
@@ -190,29 +200,35 @@ mod tests {
         right: LimitOrder,
     }
 
-    fn create_orders(ids: (u64,u64), prices: (Decimal,Decimal), sides: (Side,Side), quantities: (Decimal,Decimal)) -> (LimitOrder, LimitOrder) {
-        (LimitOrder {
-            id: ids.0,
-            limit_price: prices.0,
-            quantity: quantities.0,
-            placed_at: Local::now(),
-            side: sides.0,
-            quantity_traded: dec!(0),
-            quantity_remaining: quantities.0,
-            state: order::OrderState::New,
-        },
-        LimitOrder {
-            id: ids.1,
-            limit_price: prices.1,
-            quantity: quantities.1,
-            placed_at: Local::now(),
-            side: sides.1,
-            quantity_traded: dec!(0),
-            quantity_remaining: quantities.1,
-            state: order::OrderState::New,
-        })
+    fn create_orders(
+        ids: (u64, u64),
+        prices: (Decimal, Decimal),
+        sides: (Side, Side),
+        quantities: (Decimal, Decimal),
+    ) -> (LimitOrder, LimitOrder) {
+        (
+            LimitOrder {
+                id: ids.0,
+                limit_price: prices.0,
+                quantity: quantities.0,
+                placed_at: Local::now(),
+                side: sides.0,
+                quantity_traded: dec!(0),
+                quantity_remaining: quantities.0,
+                state: order::OrderState::New,
+            },
+            LimitOrder {
+                id: ids.1,
+                limit_price: prices.1,
+                quantity: quantities.1,
+                placed_at: Local::now(),
+                side: sides.1,
+                quantity_traded: dec!(0),
+                quantity_remaining: quantities.1,
+                state: order::OrderState::New,
+            },
+        )
     }
-    
 
     #[test]
     fn new_initialises() {
@@ -224,8 +240,13 @@ mod tests {
 
     #[test]
     fn insert_new_bids() {
-        let (bid1, bid2) = create_orders((1,2),(dec!(1200.2134),dec!(1200.2136)), (Side::Buy, Side::Buy), (dec!(10), dec!(10)));
-    
+        let (bid1, bid2) = create_orders(
+            (1, 2),
+            (dec!(1200.2134), dec!(1200.2136)),
+            (Side::Buy, Side::Buy),
+            (dec!(10), dec!(10)),
+        );
+
         let mut order_book = OrderBook::new();
 
         order_book.insert(bid1);
@@ -239,7 +260,12 @@ mod tests {
 
     #[test]
     fn insert_existing_bid_level() {
-        let (bid1, bid2) = create_orders((1,2),(dec!(1200.2134),dec!(1200.2134)), (Side::Buy, Side::Buy), (dec!(10), dec!(10)));
+        let (bid1, bid2) = create_orders(
+            (1, 2),
+            (dec!(1200.2134), dec!(1200.2134)),
+            (Side::Buy, Side::Buy),
+            (dec!(10), dec!(10)),
+        );
 
         let mut order_book = OrderBook::new();
 
@@ -254,7 +280,12 @@ mod tests {
     }
     #[test]
     fn insert_new_asks() {
-        let (ask1, ask2) = create_orders((1,2),(dec!(1200.2134),dec!(1200.2136)), (Side::Sell, Side::Sell), (dec!(10), dec!(10)));
+        let (ask1, ask2) = create_orders(
+            (1, 2),
+            (dec!(1200.2134), dec!(1200.2136)),
+            (Side::Sell, Side::Sell),
+            (dec!(10), dec!(10)),
+        );
 
         let mut order_book = OrderBook::new();
 
@@ -269,7 +300,12 @@ mod tests {
 
     #[test]
     fn insert_existing_ask_level() {
-        let (ask1, ask2) = create_orders((1,2),(dec!(1200.2134),dec!(1200.2134)), (Side::Sell, Side::Sell), (dec!(10), dec!(10)));
+        let (ask1, ask2) = create_orders(
+            (1, 2),
+            (dec!(1200.2134), dec!(1200.2134)),
+            (Side::Sell, Side::Sell),
+            (dec!(10), dec!(10)),
+        );
 
         let mut order_book = OrderBook::new();
 
@@ -285,7 +321,12 @@ mod tests {
 
     #[test]
     fn insert_routes_to_correct_side() {
-        let (bid, ask) = create_orders((1,2),(dec!(1200.2134),dec!(1200.2136)), (Side::Buy, Side::Sell), (dec!(10), dec!(10)));
+        let (bid, ask) = create_orders(
+            (1, 2),
+            (dec!(1200.2134), dec!(1200.2136)),
+            (Side::Buy, Side::Sell),
+            (dec!(10), dec!(10)),
+        );
 
         let mut order_book = OrderBook::new();
 
@@ -312,7 +353,12 @@ mod tests {
 
     #[test]
     fn insert_orders_placed_count() {
-        let (bid, ask) = create_orders((1,2),(dec!(1200.2134),dec!(1200.2136)), (Side::Buy, Side::Sell), (dec!(10), dec!(10)));
+        let (bid, ask) = create_orders(
+            (1, 2),
+            (dec!(1200.2134), dec!(1200.2136)),
+            (Side::Buy, Side::Sell),
+            (dec!(10), dec!(10)),
+        );
 
         let mut order_book = OrderBook::new();
 
@@ -329,20 +375,43 @@ mod tests {
 
     #[test]
     fn insert_order_states() {
-        let (bid, ask) = create_orders((1,2),(dec!(1200.2134),dec!(1200.2136)), (Side::Buy, Side::Sell), (dec!(10), dec!(10)));
+        let (bid, ask) = create_orders(
+            (1, 2),
+            (dec!(1200.2134), dec!(1200.2136)),
+            (Side::Buy, Side::Sell),
+            (dec!(10), dec!(10)),
+        );
 
         let mut order_book = OrderBook::new();
 
         assert_eq!(bid.state, OrderState::New);
 
         order_book.insert(bid);
-        
-        assert_eq!(order_book.bids.get(&dec!(1200.2134)).unwrap().front().unwrap().state, OrderState::Open);
+
+        assert_eq!(
+            order_book
+                .bids
+                .get(&dec!(1200.2134))
+                .unwrap()
+                .front()
+                .unwrap()
+                .state,
+            OrderState::Open
+        );
         assert_eq!(ask.state, OrderState::New);
 
         order_book.insert(ask);
 
-        assert_eq!(order_book.asks.get(&dec!(1200.2136)).unwrap().front().unwrap().state, OrderState::Open);
+        assert_eq!(
+            order_book
+                .asks
+                .get(&dec!(1200.2136))
+                .unwrap()
+                .front()
+                .unwrap()
+                .state,
+            OrderState::Open
+        );
     }
 
     #[test]
@@ -411,7 +480,12 @@ mod tests {
 
     #[test]
     fn match_sides_bid_above_ask() {
-        let (bid, ask) = create_orders((1,3),(dec!(1200.2134),dec!(1200.2133)), (Side::Buy, Side::Sell), (dec!(10), dec!(10)));
+        let (bid, ask) = create_orders(
+            (1, 3),
+            (dec!(1200.2134), dec!(1200.2133)),
+            (Side::Buy, Side::Sell),
+            (dec!(10), dec!(10)),
+        );
 
         let mut order_book = OrderBook::new();
 
@@ -429,7 +503,12 @@ mod tests {
 
     #[test]
     fn match_sides_bid_matching_ask() {
-        let (bid, ask) = create_orders((1,2),(dec!(1200.2134),dec!(1200.2134)), (Side::Buy, Side::Sell), (dec!(10), dec!(10)));
+        let (bid, ask) = create_orders(
+            (1, 2),
+            (dec!(1200.2134), dec!(1200.2134)),
+            (Side::Buy, Side::Sell),
+            (dec!(10), dec!(10)),
+        );
 
         let mut order_book = OrderBook::new();
 
@@ -447,7 +526,12 @@ mod tests {
 
     #[test]
     fn match_sides_bid_below_ask() {
-        let (bid, ask) = create_orders((1,2),(dec!(1200.2132),dec!(1200.2134)), (Side::Buy, Side::Sell), (dec!(10), dec!(10)));
+        let (bid, ask) = create_orders(
+            (1, 2),
+            (dec!(1200.2132), dec!(1200.2134)),
+            (Side::Buy, Side::Sell),
+            (dec!(10), dec!(10)),
+        );
 
         let mut order_book = OrderBook::new();
 
@@ -499,8 +583,18 @@ mod tests {
 
     #[test]
     fn match_sides_fifo_order() {
-        let (bid1, ask1) = create_orders((1,3),(dec!(1200.2134),dec!(1200.2133)), (Side::Buy, Side::Sell), (dec!(10), dec!(10)));
-        let (bid2, ask2) = create_orders((2,4),(dec!(1200.2134),dec!(1200.2133)), (Side::Buy, Side::Sell), (dec!(10), dec!(10)));
+        let (bid1, ask1) = create_orders(
+            (1, 3),
+            (dec!(1200.2134), dec!(1200.2133)),
+            (Side::Buy, Side::Sell),
+            (dec!(10), dec!(10)),
+        );
+        let (bid2, ask2) = create_orders(
+            (2, 4),
+            (dec!(1200.2134), dec!(1200.2133)),
+            (Side::Buy, Side::Sell),
+            (dec!(10), dec!(10)),
+        );
 
         let mut order_book = OrderBook::new();
 
@@ -526,25 +620,150 @@ mod tests {
     }
 
     #[test]
-    fn process_match_partial_fill() {
-        panic!();
+    fn process_match_open_orders() {
+        let (bid, ask) = create_orders(
+            (1, 2),
+            (dec!(1200.2134), dec!(1200.2134)),
+            (Side::Buy, Side::Sell),
+            (dec!(15), dec!(10)),
+        );
+
+        let mut order_book = OrderBook::new();
+
+        let bid_id = bid.id;
+        let ask_id = ask.id;
+        let ask_price = ask.limit_price;
+
+        order_book.insert(bid);
+        order_book.insert(ask);
+
+        let result = order_book.process(&EngineEvent::OrdersMatched(OrdersMatchedEvent {
+            id: 1,
+            bid_id: bid_id,
+            ask_id: ask_id,
+            ask_price: ask_price,
+            matched_at: Local::now(),
+        }));
+
+        let EngineEvent::TradeExecuted(trade) = result.unwrap() else {
+            panic!("Expected TradeExecuted event.");
+        };
+
+        assert_eq!(trade.executed_quantity, dec!(10));
+        assert_eq!(trade.ask_order_id, 2);
+        assert_eq!(trade.bid_order_id, 1);
+        assert_eq!(trade.execution_price, ask_price);
+
+        assert_eq!(
+            order_book.asks.get_key_value(&ask_price).unwrap().1.len(),
+            0
+        );
+        assert_eq!(
+            order_book
+                .bids
+                .get_key_value(&dec!(1200.2134))
+                .unwrap()
+                .1
+                .len(),
+            1
+        );
+    }
+
+    #[test]
+    fn process_match_partially_filled_orders() {
+        let (mut bid, mut ask) = create_orders(
+            (1, 2),
+            (dec!(1200.2134), dec!(1200.2134)),
+            (Side::Buy, Side::Sell),
+            (dec!(15), dec!(10)),
+        );
+        bid.state = OrderState::PartiallyFulfilled;
+        bid.quantity_remaining = bid.quantity_remaining - dec!(5);
+        bid.quantity_traded = bid.quantity_traded + dec!(5);
+
+        ask.state = OrderState::PartiallyFulfilled;
+        ask.quantity_remaining = ask.quantity_remaining - dec!(5);
+        ask.quantity_traded = ask.quantity_traded + dec!(5);
+
+
+        let mut order_book = OrderBook::new();
+
+        let bid_id = bid.id;
+        let ask_id = ask.id;
+        let ask_price = ask.limit_price;
+
+        order_book.insert(bid);
+        order_book.insert(ask);
+
+        let result = order_book.process(&EngineEvent::OrdersMatched(OrdersMatchedEvent {
+            id: 1,
+            bid_id: bid_id,
+            ask_id: ask_id,
+            ask_price: ask_price,
+            matched_at: Local::now(),
+        }));
+
+        let EngineEvent::TradeExecuted(trade) = result.unwrap() else {
+            panic!("Expected TradeExecuted event.");
+        };
+
+        assert_eq!(trade.executed_quantity, dec!(5));
+        assert_eq!(trade.ask_order_id, 2);
+        assert_eq!(trade.bid_order_id, 1);
+        assert_eq!(trade.execution_price, ask_price);
+
+        assert_eq!(
+            order_book.asks.get_key_value(&ask_price).unwrap().1.len(),
+            0
+        );
+        assert_eq!(
+            order_book
+                .bids
+                .get_key_value(&dec!(1200.2134))
+                .unwrap()
+                .1
+                .len(),
+            1
+        );
     }
     
     #[test]
-    fn process_match_fill() {
-        panic!();
-    }
-
-    #[test]
     fn process_match_price_level_does_not_exist() {
-        panic!();
+        let (mut bid, mut ask) = create_orders(
+            (1, 2),
+            (dec!(1200.2134), dec!(1200.2134)),
+            (Side::Buy, Side::Sell),
+            (dec!(15), dec!(10)),
+        );
+        
+        let mut order_book = OrderBook::new();
+        
+        let bid_id = bid.id;
+        let ask_id = ask.id;
+        let ask_price = ask.limit_price;
+        
+        order_book.insert(bid);
+        order_book.insert(ask);
+        
+        let result = order_book.process(&EngineEvent::OrdersMatched(OrdersMatchedEvent {
+            id: 1,
+            bid_id: bid_id,
+            ask_id: ask_id,
+            ask_price: dec!(1500),
+            matched_at: Local::now(),
+        }));
+        
+        let err = result.unwrap_err();
+        
+        assert_eq!(err.kind(), ErrorKind::NotFound);
+        assert_eq!(err.to_string(), "Unable to find price level on bid side");
     }
-
+    
     #[test]
-    fn process_match_() {
+    fn process_match_invalid_order_state() {
+        // MUST ADD Guard code for state
         panic!();
     }
-
     #[test]
     fn process_cancellation() {
         panic!();
