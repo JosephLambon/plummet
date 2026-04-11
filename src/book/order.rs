@@ -4,8 +4,11 @@ use rust_decimal::{Decimal, dec};
 
 use chrono::prelude::{DateTime, Local};
 
+use crate::engine::InstrumentKey;
+
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub struct LimitOrder {
+    pub instrument: InstrumentKey,
     pub id: u64,
     pub state: OrderState,
     pub placed_at: DateTime<Local>,
@@ -57,6 +60,7 @@ mod tests {
     #[test]
     fn is_open_true() {
         let bid1 = LimitOrder {
+            instrument: InstrumentKey::Btc,
             id: 1,
             limit_price: dec!(100),
             quantity: dec!(10),
@@ -70,6 +74,7 @@ mod tests {
         assert!(bid1.is_open());
 
         let bid2 = LimitOrder {
+            instrument: InstrumentKey::Btc,
             id: 1,
             limit_price: dec!(100),
             quantity: dec!(10),
@@ -86,6 +91,7 @@ mod tests {
     #[test]
     fn is_open_false() {
         let bid1 = LimitOrder {
+            instrument: InstrumentKey::Btc,
             id: 1,
             limit_price: dec!(100),
             quantity: dec!(10),
@@ -112,6 +118,7 @@ mod tests {
         assert!(!bid2.is_open());
 
         let bid3 = LimitOrder {
+            instrument: InstrumentKey::Btc,
             id: 1,
             limit_price: dec!(100),
             quantity: dec!(10),
@@ -128,6 +135,7 @@ mod tests {
     #[test]
     fn adjust_quantities_ok() {
         let mut bid = LimitOrder {
+            instrument: InstrumentKey::Btc,
             id: 1,
             limit_price: dec!(100),
             quantity: dec!(15),
@@ -138,6 +146,7 @@ mod tests {
             state: OrderState::New,
         };
         let mut ask = LimitOrder {
+            instrument: InstrumentKey::Btc,
             id: 2,
             limit_price: dec!(100),
             quantity: dec!(10),
@@ -164,6 +173,7 @@ mod tests {
     #[test]
     fn adjust_quantities_err() {
         let mut bid = LimitOrder {
+            instrument: InstrumentKey::Btc,
             id: 1,
             limit_price: dec!(100),
             quantity: dec!(15),

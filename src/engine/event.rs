@@ -1,12 +1,20 @@
 use chrono::{DateTime, Local};
 use rust_decimal::Decimal;
 
-use crate::book::{LimitOrder, Side, Trade, order::OrderState};
+use crate::{
+    book::{LimitOrder, Side, Trade, order::OrderState},
+    engine::InstrumentKey,
+};
 
 #[derive(Debug, Clone)]
 pub enum EngineCommand {
     PlaceOrder(LimitOrder),
     CancelOrder(LimitOrder),
+    Shutdown,
+}
+
+pub enum CommandOutcome {
+    Continue,
     Shutdown,
 }
 
@@ -21,6 +29,7 @@ pub enum EngineEvent {
 
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub struct OrderPlacedEvent {
+    pub instrument: InstrumentKey,
     pub id: u64,
     pub state: OrderState,
     pub placed_at: DateTime<Local>,
@@ -34,6 +43,7 @@ pub struct OrderPlacedEvent {
 
 #[derive(Debug, Clone)]
 pub struct OrdersMatchedEvent {
+    pub instrument: InstrumentKey,
     pub id: u64,
     pub bid_id: u64,
     pub ask_id: u64,
@@ -44,6 +54,7 @@ pub struct OrdersMatchedEvent {
 
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub struct CancellationEvent {
+    pub instrument: InstrumentKey,
     pub id: u64,
     pub cancelled_at: DateTime<Local>,
     pub limit_price: Decimal,

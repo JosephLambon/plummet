@@ -2,7 +2,10 @@ pub mod order;
 use chrono::Local;
 pub use order::{LimitOrder, Side};
 
-use crate::{book::order::OrderState, engine::event::EngineEvent};
+use crate::{
+    book::order::OrderState,
+    engine::{InstrumentKey, event::EngineEvent},
+};
 
 use std::{
     collections::{BTreeMap, VecDeque},
@@ -18,6 +21,7 @@ pub use trade::Trade;
 
 #[derive(Debug)]
 pub struct OrderBook {
+    pub instrument: InstrumentKey,
     pub asks: BTreeMap<Decimal, VecDeque<LimitOrder>>,
     pub bids: BTreeMap<Decimal, VecDeque<LimitOrder>>,
     pub orders_placed: u64,
@@ -42,8 +46,9 @@ pub struct MatchResult {
 }
 
 impl OrderBook {
-    pub fn new() -> Self {
+    pub fn new(instrument: InstrumentKey) -> Self {
         Self {
+            instrument,
             asks: BTreeMap::new(),
             bids: BTreeMap::new(),
             orders_placed: 0,
@@ -107,6 +112,7 @@ impl OrderBook {
 
                         ExecutedTradeResult {
                             trade: Trade {
+                                instrument: self.instrument,
                                 trade_id: self.executed_trades,
                                 bid_order_id: bid.id,
                                 ask_order_id: ask.id,
@@ -253,12 +259,6 @@ impl OrderBook {
     }
 }
 
-impl Default for OrderBook {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use chrono::prelude::Local;
@@ -279,6 +279,7 @@ mod tests {
     ) -> (LimitOrder, LimitOrder) {
         (
             LimitOrder {
+                instrument: InstrumentKey::Btc,
                 id: ids.0,
                 limit_price: prices.0,
                 quantity: quantities.0,
@@ -289,6 +290,7 @@ mod tests {
                 state: order::OrderState::New,
             },
             LimitOrder {
+                instrument: InstrumentKey::Btc,
                 id: ids.1,
                 limit_price: prices.1,
                 quantity: quantities.1,
@@ -708,7 +710,7 @@ mod tests {
             (dec!(15), dec!(10)),
         );
 
-        let mut order_book = OrderBook::new();
+        let mut order_book = OrderBook::new(InstrumentKey::Btc);
 
         let bid_id = bid.id;
         let ask_id = ask.id;
@@ -719,6 +721,7 @@ mod tests {
         order_book.insert(ask);
 
         let result = order_book.process(&EngineEvent::OrdersMatched(OrdersMatchedEvent {
+            instrument: InstrumentKey::Btc,
             id: 1,
             bid_id: bid_id,
             ask_id: ask_id,

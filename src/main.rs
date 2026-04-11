@@ -17,6 +17,8 @@ use rust_decimal::dec;
 
 use engine::*;
 
+use crate::engine::event::EngineEvent;
+
 fn main() {
     tracing_subscriber::fmt::fmt()
         .with_max_level(Level::TRACE)
@@ -32,6 +34,7 @@ fn main() {
     engine.add_instrument(InstrumentKey::Eth);
 
     let bid1 = LimitOrder {
+        instrument: InstrumentKey::Btc,
         id: 1,
         state: order::OrderState::New,
         placed_at: Local::now(),
@@ -42,6 +45,7 @@ fn main() {
         quantity_remaining: dec!(50),
     };
     let bid2 = LimitOrder {
+        instrument: InstrumentKey::Btc,
         id: 2,
         state: order::OrderState::New,
         placed_at: Local::now(),
@@ -52,6 +56,7 @@ fn main() {
         quantity_remaining: dec!(50),
     };
     let bid3 = LimitOrder {
+        instrument: InstrumentKey::Btc,
         id: 3,
         state: order::OrderState::New,
         placed_at: Local::now(),
@@ -62,6 +67,7 @@ fn main() {
         quantity_remaining: dec!(50),
     };
     let ask1 = LimitOrder {
+        instrument: InstrumentKey::Btc,
         id: 4,
         state: order::OrderState::New,
         placed_at: Local::now(),
@@ -72,6 +78,7 @@ fn main() {
         quantity_remaining: dec!(50),
     };
     let ask2 = LimitOrder {
+        instrument: InstrumentKey::Btc,
         id: 5,
         state: order::OrderState::New,
         placed_at: Local::now(),
@@ -82,6 +89,7 @@ fn main() {
         quantity_remaining: dec!(50),
     };
     let ask3 = LimitOrder {
+        instrument: InstrumentKey::Btc,
         id: 6,
         state: order::OrderState::New,
         placed_at: Local::now(),
@@ -125,11 +133,13 @@ fn main() {
     };
 
     let eth = async move {
-        for bid in bids_eth {
-            let _ = tx_eth.send(EngineCommand::PlaceOrder(bid.clone()));
+        for mut bid in bids_eth {
+            bid.instrument = InstrumentKey::Eth;
+            let _ = tx_eth.send(EngineCommand::PlaceOrder(bid));
         }
 
-        for ask in asks_eth {
+        for mut ask in asks_eth {
+            ask.instrument = InstrumentKey::Eth;
             let _ = tx_eth.send(EngineCommand::PlaceOrder(ask.clone()));
         }
         thread::sleep(Duration::from_secs(2));
@@ -143,6 +153,18 @@ fn main() {
 
     thread::sleep(Duration::from_secs(5));
 
-    info!("SIMULAION COMPLETE.\n");
+    let mut audit_log: Vec<EngineEvent> = vec![];
+
+    while let Ok(event) = engine.events.recv() {
+        audit_log.push(event.clone());
+
+        if let EngineEvent::Shutdown = event {
+            println!("\n\n ENGINE SHUTTING DOWN... \n\n");
+            println!("\n\n Final Audit log: {:#?} \n\n", audit_log);
+            break;
+        }
+    }
+
+    info!("SIMULATION COMPLETE.\n");
     info!("===================\n\n");
 }
