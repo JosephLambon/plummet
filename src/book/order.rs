@@ -105,6 +105,7 @@ mod tests {
         assert!(!bid1.is_open());
 
         let bid2 = LimitOrder {
+            instrument: InstrumentKey::Btc,
             id: 1,
             limit_price: dec!(100),
             quantity: dec!(10),

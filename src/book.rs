@@ -24,7 +24,7 @@ pub struct OrderBook {
     pub instrument: InstrumentKey,
     pub asks: BTreeMap<Decimal, VecDeque<LimitOrder>>,
     pub bids: BTreeMap<Decimal, VecDeque<LimitOrder>>,
-    pub orders_placed: u64,
+    orders_placed: u64,
     pub events_processed: u64,
     pub executed_trades: u64,
     pub cancelled_trades: u64,
@@ -127,7 +127,6 @@ impl OrderBook {
                     }
                 };
 
-                // Remove if needed
                 if executed.bid_fulfilled {
                     self.remove_front_order(&executed.bid_price, Side::Buy)?;
                 }
@@ -305,7 +304,7 @@ mod tests {
 
     #[test]
     fn new_initialises() {
-        let order_book = OrderBook::new();
+        let order_book = OrderBook::new(InstrumentKey::Btc);
 
         assert_eq!(BTreeMap::new(), order_book.asks);
         assert_eq!(BTreeMap::new(), order_book.bids);
@@ -320,7 +319,7 @@ mod tests {
             (dec!(10), dec!(10)),
         );
 
-        let mut order_book = OrderBook::new();
+        let mut order_book = OrderBook::new(InstrumentKey::Btc);
 
         order_book.insert(bid1);
         order_book.insert(bid2);
@@ -340,7 +339,7 @@ mod tests {
             (dec!(10), dec!(10)),
         );
 
-        let mut order_book = OrderBook::new();
+        let mut order_book = OrderBook::new(InstrumentKey::Btc);
 
         order_book.insert(bid1.clone());
         order_book.insert(bid2.clone());
@@ -362,7 +361,7 @@ mod tests {
             (dec!(10), dec!(10)),
         );
 
-        let mut order_book = OrderBook::new();
+        let mut order_book = OrderBook::new(InstrumentKey::Btc);
 
         order_book.insert(ask1);
         order_book.insert(ask2);
@@ -382,7 +381,7 @@ mod tests {
             (dec!(10), dec!(10)),
         );
 
-        let mut order_book = OrderBook::new();
+        let mut order_book = OrderBook::new(InstrumentKey::Btc);
 
         order_book.insert(ask1.clone());
         order_book.insert(ask2.clone());
@@ -405,7 +404,7 @@ mod tests {
             (dec!(10), dec!(10)),
         );
 
-        let mut order_book = OrderBook::new();
+        let mut order_book = OrderBook::new(InstrumentKey::Btc);
 
         order_book.insert(bid.clone());
         order_book.insert(ask.clone());
@@ -439,7 +438,7 @@ mod tests {
             (dec!(10), dec!(10)),
         );
 
-        let mut order_book = OrderBook::new();
+        let mut order_book = OrderBook::new(InstrumentKey::Btc);
 
         assert_eq!(order_book.orders_placed, 0);
 
@@ -461,7 +460,7 @@ mod tests {
             (dec!(10), dec!(10)),
         );
 
-        let mut order_book = OrderBook::new();
+        let mut order_book = OrderBook::new(InstrumentKey::Btc);
 
         assert_eq!(bid.state, OrderState::New);
 
@@ -496,6 +495,7 @@ mod tests {
     #[test]
     fn insert_fifo_order_within_price_level() {
         let bid1: LimitOrder = LimitOrder {
+            instrument: InstrumentKey::Btc,
             id: 1,
             limit_price: dec!(1200.2134),
             quantity: dec!(10),
@@ -506,6 +506,7 @@ mod tests {
             state: order::OrderState::Open,
         };
         let bid2 = LimitOrder {
+            instrument: InstrumentKey::Btc,
             id: 2,
             limit_price: dec!(1200.2134),
             quantity: dec!(10),
@@ -516,6 +517,7 @@ mod tests {
             state: order::OrderState::Open,
         };
         let bid3 = LimitOrder {
+            instrument: InstrumentKey::Btc,
             id: 3,
             limit_price: dec!(1200.2134),
             quantity: dec!(10),
@@ -526,7 +528,7 @@ mod tests {
             state: order::OrderState::Open,
         };
 
-        let mut order_book = OrderBook::new();
+        let mut order_book = OrderBook::new(InstrumentKey::Btc);
 
         order_book.insert(bid1.clone());
         order_book.insert(bid2.clone());
@@ -566,7 +568,7 @@ mod tests {
             (dec!(10), dec!(10)),
         );
 
-        let mut order_book = OrderBook::new();
+        let mut order_book = OrderBook::new(InstrumentKey::Btc);
 
         let expected = MatchResult {
             ask_id: ask.id,
@@ -590,7 +592,7 @@ mod tests {
             (dec!(10), dec!(10)),
         );
 
-        let mut order_book = OrderBook::new();
+        let mut order_book = OrderBook::new(InstrumentKey::Btc);
 
         let expected = MatchResult {
             ask_id: ask.id,
@@ -614,7 +616,7 @@ mod tests {
             (dec!(10), dec!(10)),
         );
 
-        let mut order_book = OrderBook::new();
+        let mut order_book = OrderBook::new(InstrumentKey::Btc);
 
         order_book.insert(bid);
         order_book.insert(ask);
@@ -625,6 +627,7 @@ mod tests {
     #[test]
     fn match_sides_no_bids() {
         let ask = LimitOrder {
+            instrument: InstrumentKey::Btc,
             id: 3,
             limit_price: dec!(1200.2133),
             quantity: dec!(10),
@@ -635,7 +638,7 @@ mod tests {
             state: order::OrderState::Open,
         };
 
-        let mut order_book = OrderBook::new();
+        let mut order_book = OrderBook::new(InstrumentKey::Btc);
 
         order_book.insert(ask);
 
@@ -645,6 +648,7 @@ mod tests {
     #[test]
     fn match_sides_no_asks() {
         let bid = LimitOrder {
+            instrument: InstrumentKey::Btc,
             id: 3,
             limit_price: dec!(1200.2133),
             quantity: dec!(10),
@@ -655,7 +659,7 @@ mod tests {
             state: order::OrderState::Open,
         };
 
-        let mut order_book = OrderBook::new();
+        let mut order_book = OrderBook::new(InstrumentKey::Btc);
 
         order_book.insert(bid);
 
@@ -677,7 +681,7 @@ mod tests {
             (dec!(10), dec!(10)),
         );
 
-        let mut order_book = OrderBook::new();
+        let mut order_book = OrderBook::new(InstrumentKey::Btc);
 
         let expected = MatchResult {
             ask_id: ask1.id,
@@ -696,7 +700,7 @@ mod tests {
 
     #[test]
     fn match_sides_empty_order_book() {
-        let order_book = OrderBook::new();
+        let order_book = OrderBook::new(InstrumentKey::Btc);
 
         assert_eq!(order_book.match_sides(), None);
     }
@@ -722,9 +726,8 @@ mod tests {
 
         let result = order_book.process(&EngineEvent::OrdersMatched(OrdersMatchedEvent {
             instrument: InstrumentKey::Btc,
-            id: 1,
-            bid_id: bid_id,
-            ask_id: ask_id,
+            bid_order_id: bid_id,
+            ask_order_id: ask_id,
             bid_price: bid_price,
             ask_price: ask_price,
             matched_at: Local::now(),
@@ -767,7 +770,7 @@ mod tests {
         ask.quantity_remaining = ask.quantity_remaining - dec!(5);
         ask.quantity_traded = ask.quantity_traded + dec!(5);
 
-        let mut order_book = OrderBook::new();
+        let mut order_book = OrderBook::new(InstrumentKey::Btc);
 
         let bid_id = bid.id;
         let ask_id = ask.id;
@@ -778,9 +781,9 @@ mod tests {
         order_book.insert(ask);
 
         let result = order_book.process(&EngineEvent::OrdersMatched(OrdersMatchedEvent {
-            id: 1,
-            bid_id: bid_id,
-            ask_id: ask_id,
+            instrument: InstrumentKey::Btc,
+            bid_order_id: bid_id,
+            ask_order_id: ask_id,
             bid_price: bid_price,
             ask_price: ask_price,
             matched_at: Local::now(),
@@ -816,7 +819,7 @@ mod tests {
             (dec!(15), dec!(10)),
         );
 
-        let mut order_book = OrderBook::new();
+        let mut order_book = OrderBook::new(InstrumentKey::Btc);
 
         let bid_id = bid.id;
         let ask_id = ask.id;
@@ -825,9 +828,9 @@ mod tests {
         order_book.insert(ask);
 
         let result = order_book.process(&EngineEvent::OrdersMatched(OrdersMatchedEvent {
-            id: 1,
-            bid_id: bid_id,
-            ask_id: ask_id,
+            instrument: InstrumentKey::Btc,
+            bid_order_id: bid_id,
+            ask_order_id: ask_id,
             bid_price: dec!(1200.2134),
             ask_price: dec!(1500),
             matched_at: Local::now(),
@@ -841,14 +844,14 @@ mod tests {
 
     #[test]
     fn process_match_invalid_order_state() {
-        let (mut bid, ask) = create_orders(
+        let (bid, ask) = create_orders(
             (1, 2),
             (dec!(1200.2134), dec!(1200.2134)),
             (Side::Buy, Side::Sell),
             (dec!(15), dec!(10)),
         );
 
-        let mut order_book = OrderBook::new();
+        let mut order_book = OrderBook::new(InstrumentKey::Btc);
 
         let bid_id = bid.id;
         let ask_id = ask.id;
@@ -866,9 +869,9 @@ mod tests {
         bid.state = OrderState::Fulfilled;
 
         let result = order_book.process(&EngineEvent::OrdersMatched(OrdersMatchedEvent {
-            id: 1,
-            bid_id: bid_id,
-            ask_id: ask_id,
+            instrument: InstrumentKey::Btc,
+            bid_order_id: bid_id,
+            ask_order_id: ask_id,
             bid_price: dec!(1200.2134),
             ask_price: dec!(1200.2134),
             matched_at: Local::now(),
@@ -892,13 +895,14 @@ mod tests {
             (dec!(15), dec!(10)),
         );
 
-        let mut order_book = OrderBook::new();
+        let mut order_book = OrderBook::new(InstrumentKey::Btc);
 
         order_book.insert(bid);
         order_book.insert(ask);
 
         let result = order_book.process(&EngineEvent::OrderCancelled(CancellationEvent {
-            id: 1,
+            instrument: InstrumentKey::Btc,
+            order_id: 1,
             cancelled_at: Local::now(),
             limit_price: dec!(1200.2134),
             quantity: dec!(15),

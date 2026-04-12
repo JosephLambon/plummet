@@ -5,8 +5,6 @@ use crate::{
     book::{LimitOrder, Side, Trade, order::OrderState},
     engine::InstrumentKey,
 };
-
-#[derive(Debug, Clone)]
 pub enum EngineCommand {
     PlaceOrder(LimitOrder),
     CancelOrder(LimitOrder),
@@ -18,7 +16,7 @@ pub enum CommandOutcome {
     Shutdown,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum EngineEvent {
     OrderPlaced(OrderPlacedEvent),
     OrderCancelled(CancellationEvent),
@@ -30,7 +28,7 @@ pub enum EngineEvent {
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub struct OrderPlacedEvent {
     pub instrument: InstrumentKey,
-    pub id: u64,
+    pub order_id: u64,
     pub state: OrderState,
     pub placed_at: DateTime<Local>,
     pub accepted_at: DateTime<Local>,
@@ -41,12 +39,11 @@ pub struct OrderPlacedEvent {
     pub quantity_remaining: Decimal,
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct OrdersMatchedEvent {
     pub instrument: InstrumentKey,
-    pub id: u64,
-    pub bid_id: u64,
-    pub ask_id: u64,
+    pub bid_order_id: u64,
+    pub ask_order_id: u64,
     pub ask_price: Decimal,
     pub bid_price: Decimal,
     pub matched_at: DateTime<Local>,
@@ -55,7 +52,7 @@ pub struct OrdersMatchedEvent {
 #[derive(Debug, PartialEq, Clone, Eq, Hash)]
 pub struct CancellationEvent {
     pub instrument: InstrumentKey,
-    pub id: u64,
+    pub order_id: u64,
     pub cancelled_at: DateTime<Local>,
     pub limit_price: Decimal,
     pub quantity: Decimal,

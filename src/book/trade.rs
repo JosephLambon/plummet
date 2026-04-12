@@ -3,7 +3,7 @@ use rust_decimal::Decimal;
 
 use crate::engine::InstrumentKey;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct Trade {
     pub instrument: InstrumentKey,
     pub trade_id: u64,

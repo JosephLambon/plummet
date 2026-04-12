@@ -50,7 +50,6 @@ impl Engine {
                 let mut order_book = OrderBook::new(ticker_symbol);
                 // Listen for commands until shutdown
                 while let Ok(command) = rx.recv() {
-                    // let event_tx = event_tx.clone();÷
                     match Self::handle_command(&mut order_book, command, &event_tx) {
                         Ok(CommandOutcome::Shutdown) | Err(_) => break,
                         Ok(CommandOutcome::Continue) => {}
@@ -70,7 +69,7 @@ impl Engine {
                 // Audit log event
                 event_tx.send(EngineEvent::OrderPlaced(OrderPlacedEvent {
                     instrument: order.instrument,
-                    id: order.id,
+                    order_id: order.id,
                     state: order.state,
                     placed_at: order.placed_at,
                     accepted_at: Local::now(),
@@ -85,30 +84,29 @@ impl Engine {
 
                 while let Some(result) = order_book.match_sides() {
                     debug!("Match found.");
-                    order_book.orders_placed += 1;
 
                     let match_event = EngineEvent::OrdersMatched(OrdersMatchedEvent {
                         instrument: order_book.instrument,
-                        id: order_book.orders_placed,
                         matched_at: Local::now(),
-                        ask_id: result.ask_id,
-                        bid_id: result.bid_id,
+                        ask_order_id: result.ask_id,
+                        bid_order_id: result.bid_id,
                         bid_price: result.bid_price,
                         ask_price: result.ask_price,
                     });
 
-                    // Send OrdersMatchedEvent EngineCommand to executor
                     let result = order_book.process(&match_event);
 
-                    // Audit log OrdersMatched event
+                    // OrdersMatched event must reach
+                    // events stream before result handled
                     event_tx.send(match_event)?;
 
                     if let Ok(event) = result {
                         debug!("Trade successfully executed.");
                         event_tx.send(event)?;
                     } else {
-                        //  error handling
+                        // Enhance in future so recoverable errors don't force shutdown
                         error!("Unable to execute trade.");
+                        return Ok(CommandOutcome::Shutdown);
                     }
                 }
                 Ok(CommandOutcome::Continue)
@@ -116,7 +114,7 @@ impl Engine {
             EngineCommand::CancelOrder(order) => {
                 event_tx.send(EngineEvent::OrderCancelled(CancellationEvent {
                     instrument: order.instrument,
-                    id: order.id,
+                    order_id: order.id,
                     cancelled_at: Local::now(),
                     limit_price: order.limit_price,
                     quantity: order.quantity,
@@ -140,7 +138,9 @@ impl Engine {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::mpsc::TryRecvError;
+    use std::{sync::mpsc::TryRecvError, time::Duration};
+
+    use crate::book::{LimitOrder, Side, order::OrderState};
 
     use super::*;
 
@@ -174,5 +174,215 @@ mod tests {
         engine.add_instrument(InstrumentKey::Eth);
 
         assert_eq!(engine.senders.len(), 2);
+    }
+
+    #[test]
+    fn add_instrument_event_channel_disconnects() {
+        let mut engine = Engine::new();
+        engine.add_instrument(InstrumentKey::Btc);
+
+        // Disconnect channel by dropping Receiver
+        drop(engine.events);
+
+        let tx = engine.senders.get(&InstrumentKey::Btc).unwrap();
+
+        let result = tx.send(EngineCommand::PlaceOrder(LimitOrder {
+            instrument: InstrumentKey::Btc,
+            id: 1,
+            state: OrderState::New,
+            placed_at: Local::now(),
+            limit_price: dec!(1500),
+            quantity: dec!(10),
+            side: Side::Buy,
+            quantity_traded: dec!(0),
+            quantity_remaining: dec!(10),
+        }));
+
+        let deadline = Local::now() + Duration::from_secs(1);
+        loop {
+            // Implicit assertion
+            // After first event send is attempted, handle_command Err bubbles up
+            // This then causes thread to be exited, so subsequent EngineCommand sends Err
+            if tx.send(EngineCommand::Shutdown).is_err() {
+                break;
+            }
+            assert!(
+                Local::now() < deadline,
+                "worker thread did not exit within 1s after event channel disconnected"
+            );
+            // Yield current thread to allow other to execute if blocked
+            thread::sleep(Duration::from_millis(10));
+        }
+    }
+
+    #[test]
+    fn add_instrument_valid_order_placed_succeeds() {
+        let mut engine = Engine::new();
+        engine.add_instrument(InstrumentKey::Btc);
+
+        let tx = engine.senders.get(&InstrumentKey::Btc).unwrap();
+
+        tx.send(EngineCommand::PlaceOrder(LimitOrder {
+            instrument: InstrumentKey::Btc,
+            id: 1,
+            state: OrderState::New,
+            placed_at: Local::now(),
+            limit_price: dec!(1500),
+            quantity: dec!(10),
+            side: Side::Buy,
+            quantity_traded: dec!(0),
+            quantity_remaining: dec!(10),
+        }))
+        .unwrap();
+        tx.send(EngineCommand::PlaceOrder(LimitOrder {
+            instrument: InstrumentKey::Btc,
+            id: 2,
+            state: OrderState::New,
+            placed_at: Local::now(),
+            limit_price: dec!(1500),
+            quantity: dec!(10),
+            side: Side::Sell,
+            quantity_traded: dec!(0),
+            quantity_remaining: dec!(10),
+        }))
+        .unwrap();
+        tx.send(EngineCommand::Shutdown).unwrap();
+
+        thread::sleep(Duration::from_millis(250));
+
+        let mut events = engine.events.iter();
+
+        let mut event = events.next().unwrap();
+        assert!(matches!(
+            event,
+            EngineEvent::OrderPlaced(ref e) if e.order_id == 1
+            && e.instrument == InstrumentKey::Btc
+            && e.state == OrderState::New
+            && e.limit_price == dec!(1500)
+            && e.side == Side::Buy
+            && e.quantity == dec!(10)
+        ));
+        event = events.next().unwrap();
+        assert!(matches!(
+            event,
+            EngineEvent::OrderPlaced(ref e) if e.order_id == 2
+            && e.instrument == InstrumentKey::Btc
+            && e.state == OrderState::New
+            && e.limit_price == dec!(1500)
+            && e.side == Side::Sell
+            && e.quantity == dec!(10)
+        ));
+        event = events.next().unwrap();
+        assert!(matches!(
+            event,
+            EngineEvent::OrdersMatched(ref e) if e.instrument == InstrumentKey::Btc
+            && e.bid_order_id == 1
+            && e.ask_order_id == 2
+            && e.ask_price == dec!(1500)
+            && e.bid_price == dec!(1500)
+        ));
+        event = events.next().unwrap();
+        assert!(matches!(
+            event,
+            EngineEvent::TradeExecuted(ref t) if t.trade_id == 1
+            && t.instrument == InstrumentKey::Btc
+            && t.bid_order_id == 1
+            && t.ask_order_id == 2
+            && t.executed_quantity == dec!(10)
+            && t.execution_price == dec!(1500)
+        ));
+        event = events.next().unwrap();
+        assert_eq!(event, EngineEvent::Shutdown);
+    }
+
+    #[test]
+    fn add_instrument_invalid_order_placed() {
+        // MUST add guard code & Result output to OrderBook::insert in a future story
+        panic!()
+    }
+
+    #[test]
+    fn add_instrument_order_cancelled() {
+        let mut engine = Engine::new();
+        engine.add_instrument(InstrumentKey::Btc);
+
+        let tx = engine.senders.get(&InstrumentKey::Btc).unwrap();
+
+        let order = LimitOrder {
+            instrument: InstrumentKey::Btc,
+            id: 1,
+            state: OrderState::New,
+            placed_at: Local::now(),
+            limit_price: dec!(1500),
+            quantity: dec!(10),
+            side: Side::Buy,
+            quantity_traded: dec!(0),
+            quantity_remaining: dec!(10),
+        };
+
+        tx.send(EngineCommand::PlaceOrder(order.clone())).unwrap();
+        tx.send(EngineCommand::CancelOrder(order)).unwrap();
+        tx.send(EngineCommand::Shutdown).unwrap();
+
+        thread::sleep(Duration::from_millis(250));
+
+        let mut events = engine.events.iter();
+
+        let mut event = events.next().unwrap();
+        assert!(matches!(
+            event,
+            EngineEvent::OrderPlaced(ref e) if e.order_id == 1
+            && e.instrument == InstrumentKey::Btc
+            && e.state == OrderState::New
+            && e.limit_price == dec!(1500)
+            && e.side == Side::Buy
+            && e.quantity == dec!(10)
+        ));
+        event = events.next().unwrap();
+        assert!(matches!(
+            event,
+            EngineEvent::OrderCancelled(ref e) if e.order_id == 1
+            && e.instrument == InstrumentKey::Btc
+            && e.quantity_traded == dec!(0)
+            && e.quantity_remaining == dec!(10)
+            && e.limit_price == dec!(1500)
+            && e.side == Side::Buy
+            && e.quantity == dec!(10)
+        ));
+        event = events.next().unwrap();
+        assert_eq!(event, EngineEvent::Shutdown);
+    }
+
+    #[test]
+    fn add_instrument_shutdown() {
+        let mut engine = Engine::new();
+        engine.add_instrument(InstrumentKey::Btc);
+
+        let tx = engine.senders.get(&InstrumentKey::Btc).unwrap();
+
+        tx.send(EngineCommand::Shutdown).unwrap();
+
+        thread::sleep(Duration::from_millis(250));
+
+        let mut events = engine.events.iter();
+
+        assert_eq!(events.next().unwrap(), EngineEvent::Shutdown);
+
+        let deadline = Local::now() + Duration::from_secs(1);
+        loop {
+            // Implicit assertion
+            // After first Shutdown send, thread should have exited
+            // Subsequent EngineCommand sends should Err
+            if tx.send(EngineCommand::Shutdown).is_err() {
+                break;
+            }
+
+            assert!(
+                Local::now() < deadline,
+                "worker thread did not exit within 1s of first Shutdown command"
+            );
+            // Yield current thread to allow other to execute if blocked
+            thread::sleep(Duration::from_millis(10));
+        }
     }
 }
