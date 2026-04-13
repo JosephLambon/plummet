@@ -1,20 +1,17 @@
-pub mod order;
 use chrono::Local;
-pub use order::{LimitOrder, Side};
-
-use crate::{
-    book::order::OrderState,
-    engine::{InstrumentKey, event::EngineEvent},
-};
 
 use std::{
     collections::{BTreeMap, VecDeque},
     io::{Error, ErrorKind},
 };
-
 use tracing::{Level, debug, instrument, trace};
 
 use rust_decimal::{Decimal, dec};
+
+use crate::engine::{InstrumentKey, event::EngineEvent};
+
+pub mod order;
+pub use order::{LimitOrder, OrderState, Side};
 
 mod trade;
 pub use trade::Trade;

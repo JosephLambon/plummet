@@ -1,23 +1,19 @@
 // Declare book module
-pub mod book;
-
-mod engine;
 
 use std::{process, thread};
 
-use tokio::runtime::Runtime;
+use limit_order_book::{
+    book::{LimitOrder, OrderState, Side},
+    engine::{Engine, EngineCommand, EngineEvent, InstrumentKey},
+};
 
-use book::*;
+use tokio::runtime::Runtime;
 
 use tracing::{Level, info};
 
 use chrono::Local;
 use core::time::Duration;
 use rust_decimal::dec;
-
-use engine::*;
-
-use crate::engine::event::EngineEvent;
 
 fn main() {
     tracing_subscriber::fmt::fmt()
@@ -36,7 +32,7 @@ fn main() {
     let bid1 = LimitOrder {
         instrument: InstrumentKey::Btc,
         id: 1,
-        state: order::OrderState::New,
+        state: OrderState::New,
         placed_at: Local::now(),
         limit_price: dec!(1234.5600),
         quantity: dec!(50),
@@ -47,7 +43,7 @@ fn main() {
     let bid2 = LimitOrder {
         instrument: InstrumentKey::Btc,
         id: 2,
-        state: order::OrderState::New,
+        state: OrderState::New,
         placed_at: Local::now(),
         limit_price: dec!(1234.5600),
         quantity: dec!(50),
@@ -58,7 +54,7 @@ fn main() {
     let bid3 = LimitOrder {
         instrument: InstrumentKey::Btc,
         id: 3,
-        state: order::OrderState::New,
+        state: OrderState::New,
         placed_at: Local::now(),
         limit_price: dec!(1234.5320),
         quantity: dec!(50),
@@ -69,7 +65,7 @@ fn main() {
     let ask1 = LimitOrder {
         instrument: InstrumentKey::Btc,
         id: 4,
-        state: order::OrderState::New,
+        state: OrderState::New,
         placed_at: Local::now(),
         limit_price: dec!(1123.5698),
         quantity: dec!(50),
@@ -80,7 +76,7 @@ fn main() {
     let ask2 = LimitOrder {
         instrument: InstrumentKey::Btc,
         id: 5,
-        state: order::OrderState::New,
+        state: OrderState::New,
         placed_at: Local::now(),
         limit_price: dec!(1123.5696),
         quantity: dec!(50),
@@ -91,7 +87,7 @@ fn main() {
     let ask3 = LimitOrder {
         instrument: InstrumentKey::Btc,
         id: 6,
-        state: order::OrderState::New,
+        state: OrderState::New,
         placed_at: Local::now(),
         limit_price: dec!(1123.5698),
         quantity: dec!(50),

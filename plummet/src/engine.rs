@@ -14,7 +14,7 @@ pub mod event;
 use event::*;
 
 // Re-export
-pub use event::EngineCommand;
+pub use event::{EngineCommand, EngineEvent};
 
 #[derive(Eq, PartialEq, Clone, Copy, Hash, Debug)]
 pub enum InstrumentKey {
@@ -27,7 +27,6 @@ pub struct Engine {
     pub event_tx: mpsc::Sender<EngineEvent>,
     pub events: mpsc::Receiver<EngineEvent>,
 }
-
 impl Engine {
     pub fn new() -> Self {
         let (tx, rx) = mpsc::channel::<EngineEvent>();
