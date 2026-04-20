@@ -4,7 +4,7 @@ use rust_decimal::{Decimal, dec};
 use tracing::{Level as LogLevel, instrument, trace};
 
 #[derive(Debug, Copy, Clone)]
-struct Level {
+pub struct Level {
     price: Decimal,
     qty: Decimal,
 }
@@ -16,7 +16,7 @@ pub enum Side {
 }
 
 pub struct L2OrderBook {
-    last_update_id: u64,
+    pub last_update_id: u64,
     pub asks: BTreeMap<Decimal, Decimal>,
     pub bids: BTreeMap<Decimal, Decimal>,
 }
@@ -49,7 +49,7 @@ impl L2OrderBook {
             .and_modify(|q| *q = level.qty)
             .or_insert(level.qty);
 
-        if *entry == dec!(0) {
+        if *entry <= dec!(0) {
             side.remove(&level.price);
         }
     }
@@ -96,6 +96,27 @@ mod tests {
         assert!(book.asks.len() == 0);
     }
     #[test]
+    fn upsert_bid_removes_level_when_emptied() {
+        let mut bid = Level {
+            price: dec!(0.920041),
+            qty: dec!(24.123),
+        };
+
+        let mut book = L2OrderBook::new();
+
+        book.upsert(bid, Side::Bid);
+
+        assert!(book.bids.len() == 1);
+        assert_eq!(*book.bids.get(&dec!(0.920041)).unwrap(), dec!(24.123));
+        assert!(book.asks.len() == 0);
+
+        bid.qty = dec!(0.00);
+        book.upsert(bid, Side::Bid);
+
+        assert!(book.asks.len() == 0);
+        assert!(book.bids.len() == 0);
+    }    
+    #[test]
     fn upsert_ask_inserts_new_level() {
         let ask = Level {
             price: dec!(0.920041),
@@ -129,6 +150,27 @@ mod tests {
 
         assert!(book.asks.len() == 1);
         assert_eq!(*book.asks.get(&dec!(0.920041)).unwrap(), dec!(5.00));
+        assert!(book.bids.len() == 0);
+    }
+    #[test]
+    fn upsert_ask_removes_level_when_emptied() {
+        let mut ask = Level {
+            price: dec!(0.920041),
+            qty: dec!(24.123),
+        };
+
+        let mut book = L2OrderBook::new();
+
+        book.upsert(ask, Side::Ask);
+
+        assert!(book.asks.len() == 1);
+        assert_eq!(*book.asks.get(&dec!(0.920041)).unwrap(), dec!(24.123));
+        assert!(book.bids.len() == 0);
+
+        ask.qty = dec!(0.00);
+        book.upsert(ask, Side::Ask);
+
+        assert!(book.asks.len() == 0);
         assert!(book.bids.len() == 0);
     }
 }

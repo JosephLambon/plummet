@@ -1,1 +1,2 @@
-mod book;
+pub mod book;
+pub use book::*;
