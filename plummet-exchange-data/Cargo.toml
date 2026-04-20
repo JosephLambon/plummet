@@ -1,0 +1,8 @@
+[package]
+name = "plummet-exchange-data"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+rust_decimal = { version = "1.40.0", features = ["macros"] }
+tracing = "0.1.44"
