@@ -5,8 +5,8 @@ use tracing::{Level as LogLevel, instrument, trace};
 
 #[derive(Debug, Copy, Clone)]
 pub struct Level {
-    price: Decimal,
-    qty: Decimal,
+    pub price: Decimal,
+    pub qty: Decimal,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -15,6 +15,7 @@ pub enum Side {
     Ask,
 }
 
+#[derive(Default)]
 pub struct L2OrderBook {
     pub last_update_id: u64,
     pub asks: BTreeMap<Decimal, Decimal>,
@@ -22,16 +23,20 @@ pub struct L2OrderBook {
 }
 
 impl L2OrderBook {
-    pub fn new() -> Self {
+    pub fn new(
+        last_update_id: u64,
+        bids: BTreeMap<Decimal, Decimal>,
+        asks: BTreeMap<Decimal, Decimal>,
+    ) -> Self {
         Self {
-            last_update_id: 1,
-            asks: BTreeMap::new(),
-            bids: BTreeMap::new(),
+            last_update_id,
+            asks,
+            bids,
         }
     }
 
     #[instrument(level = LogLevel::TRACE, skip_all)]
-    fn upsert(&mut self, level: Level, side: Side) {
+    pub fn upsert(&mut self, level: Level, side: Side) {
         trace!(
             side = ?side,
             level = %level.price,
@@ -66,7 +71,7 @@ mod tests {
             qty: dec!(24.123),
         };
 
-        let mut book = L2OrderBook::new();
+        let mut book = L2OrderBook::default();
 
         book.upsert(bid, Side::Bid);
 
@@ -80,7 +85,7 @@ mod tests {
             qty: dec!(24.123),
         };
 
-        let mut book = L2OrderBook::new();
+        let mut book = L2OrderBook::default();
 
         book.upsert(bid, Side::Bid);
 
@@ -102,7 +107,7 @@ mod tests {
             qty: dec!(24.123),
         };
 
-        let mut book = L2OrderBook::new();
+        let mut book = L2OrderBook::default();
 
         book.upsert(bid, Side::Bid);
 
@@ -115,7 +120,7 @@ mod tests {
 
         assert!(book.asks.len() == 0);
         assert!(book.bids.len() == 0);
-    }    
+    }
     #[test]
     fn upsert_ask_inserts_new_level() {
         let ask = Level {
@@ -123,7 +128,7 @@ mod tests {
             qty: dec!(24.123),
         };
 
-        let mut book = L2OrderBook::new();
+        let mut book = L2OrderBook::default();
 
         book.upsert(ask, Side::Ask);
 
@@ -137,7 +142,7 @@ mod tests {
             qty: dec!(24.123),
         };
 
-        let mut book = L2OrderBook::new();
+        let mut book = L2OrderBook::default();
 
         book.upsert(ask, Side::Ask);
 
@@ -159,7 +164,7 @@ mod tests {
             qty: dec!(24.123),
         };
 
-        let mut book = L2OrderBook::new();
+        let mut book = L2OrderBook::default();
 
         book.upsert(ask, Side::Ask);
 
