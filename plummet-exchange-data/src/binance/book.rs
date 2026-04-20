@@ -3,17 +3,7 @@ use std::collections::BTreeMap;
 use rust_decimal::{Decimal, dec};
 use tracing::{Level as LogLevel, instrument, trace};
 
-#[derive(Debug, Copy, Clone)]
-pub struct Level {
-    pub price: Decimal,
-    pub qty: Decimal,
-}
-
-#[derive(Debug, Copy, Clone)]
-pub enum Side {
-    Bid,
-    Ask,
-}
+use crate::{Level, OrderBookUpsert, Side};
 
 #[derive(Default)]
 pub struct L2OrderBook {
@@ -34,9 +24,11 @@ impl L2OrderBook {
             bids,
         }
     }
+}
 
+impl OrderBookUpsert for L2OrderBook {
     #[instrument(level = LogLevel::TRACE, skip_all)]
-    pub fn upsert(&mut self, level: Level, side: Side) {
+    fn upsert(&mut self, level: Level, side: Side) {
         trace!(
             side = ?side,
             level = %level.price,
